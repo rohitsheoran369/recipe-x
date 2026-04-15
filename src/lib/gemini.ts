@@ -88,7 +88,7 @@ export async function generateRecipe(query: string, prefs?: UserPreferences | nu
   // 2. Fallback to Gemini
   return withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-2.0-flash",
       contents: `Generate a detailed recipe for: ${query}. ${languagePrompt} ${personalizationPrompt} IMPORTANT: Do NOT include step numbers (like 1., 2.) in the instructions array, just provide the text for each step.`,
       config: {
         responseMimeType: "application/json",
@@ -149,7 +149,7 @@ export async function generateRecommendation(history: string[], prefs?: UserPref
 
   return withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-2.0-flash",
       contents: `
         Based on the following context, suggest ONE highly relevant and unique recipe that the user would love.
         ${historyContext}
@@ -194,7 +194,7 @@ export async function getCookingTip(currentStep: string, ingredient: string, lan
   try {
     return await withRetry(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-2.0-flash",
         contents: `I am currently at this step: "${currentStep}". I am using "${ingredient}". Give me a quick pro-tip or warning. Keep it under 20 words. Respond in ${language}.`,
       });
       return response.text || "Keep cooking!";

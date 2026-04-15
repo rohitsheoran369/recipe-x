@@ -17,15 +17,18 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
-  // Log all requests to debug 405 issues
+  // Log all requests with more detail
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    if (req.method === 'POST') {
+      console.log('Body keys:', Object.keys(req.body));
+    }
     next();
   });
 
   // API Routes
   app.post("/api/recipe/generate", async (req, res) => {
-    console.log("POST /api/recipe/generate received", req.body);
+    console.log("Handling POST /api/recipe/generate");
     const { query, language } = req.body;
     if (!query) {
       return res.status(400).json({ error: "Query is required" });
@@ -37,12 +40,6 @@ async function startServer() {
       console.error("OpenRouter Error:", error);
       res.status(500).json({ error: String(error) });
     }
-  });
-
-  // Handle other methods for the same route to avoid generic 405s
-  app.all("/api/recipe/generate", (req, res) => {
-    console.warn(`405 Method Not Allowed: ${req.method} on ${req.path}`);
-    res.status(405).json({ error: `Method ${req.method} not allowed on this endpoint` });
   });
 
   app.post("/api/tts/coqui", async (req, res) => {
