@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,7 +14,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json());
+
+  // Log all requests to debug 405 issues
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+  });
 
   // API Routes
   app.post("/api/recipe/generate", async (req, res) => {
@@ -33,6 +41,7 @@ async function startServer() {
 
   // Handle other methods for the same route to avoid generic 405s
   app.all("/api/recipe/generate", (req, res) => {
+    console.warn(`405 Method Not Allowed: ${req.method} on ${req.path}`);
     res.status(405).json({ error: `Method ${req.method} not allowed on this endpoint` });
   });
 
