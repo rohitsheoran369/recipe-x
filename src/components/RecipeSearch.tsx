@@ -24,9 +24,13 @@ export function RecipeSearch({ onRecipeFound, userPrefs }: RecipeSearchProps) {
     try {
       const recipe = await generateRecipe(query, userPrefs);
       onRecipeFound(recipe);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to generate recipe:", err);
-      setError(`Failed to generate ${userPrefs?.language || 'English'} recipe. Please try again or search in English.`);
+      if (err.message === "QUOTA_EXCEEDED") {
+        setError("Gemini API quota exceeded. Please wait a minute and try again, or try a different search.");
+      } else {
+        setError(`Failed to generate ${userPrefs?.language || 'English'} recipe. Please try again or search in English.`);
+      }
     } finally {
       setLoading(false);
     }

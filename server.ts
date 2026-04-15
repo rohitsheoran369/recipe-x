@@ -17,13 +17,23 @@ async function startServer() {
 
   // API Routes
   app.post("/api/recipe/generate", async (req, res) => {
+    console.log("POST /api/recipe/generate received", req.body);
     const { query, language } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: "Query is required" });
+    }
     try {
       const recipe = await generateOpenRouterRecipe(query, language);
       res.json(recipe);
     } catch (error) {
+      console.error("OpenRouter Error:", error);
       res.status(500).json({ error: String(error) });
     }
+  });
+
+  // Handle other methods for the same route to avoid generic 405s
+  app.all("/api/recipe/generate", (req, res) => {
+    res.status(405).json({ error: `Method ${req.method} not allowed on this endpoint` });
   });
 
   app.post("/api/tts/coqui", async (req, res) => {

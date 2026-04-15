@@ -18,10 +18,18 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Pr
   try {
     return await fn();
   } catch (error: any) {
-    // Don't retry if it's a quota error (429)
-    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED';
+    // Check for quota error (429)
+    const errorText = error?.message || String(error);
+    const isQuotaError = errorText.includes('429') || 
+                        errorText.includes('RESOURCE_EXHAUSTED') ||
+                        errorText.includes('quota');
     
-    if (retries > 0 && !isQuotaError) {
+    if (isQuotaError) {
+      console.error("Gemini Quota Exceeded:", errorText);
+      throw new Error("QUOTA_EXCEEDED");
+    }
+    
+    if (retries > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
       return withRetry(fn, retries - 1, delay * 2);
     }
@@ -74,7 +82,7 @@ export async function generateRecipe(query: string, prefs?: UserPreferences | nu
   // 2. Fallback to Gemini
   return withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `Generate a detailed recipe for: ${query}. ${languagePrompt} ${personalizationPrompt} IMPORTANT: Do NOT include step numbers (like 1., 2.) in the instructions array, just provide the text for each step.`,
       config: {
         responseMimeType: "application/json",
@@ -135,7 +143,7 @@ export async function generateRecommendation(history: string[], prefs?: UserPref
 
   return withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `
         Based on the following context, suggest ONE highly relevant and unique recipe that the user would love.
         ${historyContext}
@@ -180,7 +188,7 @@ export async function getCookingTip(currentStep: string, ingredient: string, lan
   try {
     return await withRetry(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: `I am currently at this step: "${currentStep}". I am using "${ingredient}". Give me a quick pro-tip or warning. Keep it under 20 words. Respond in ${language}.`,
       });
       return response.text || "Keep cooking!";
@@ -209,7 +217,7 @@ export async function generateSpeech(text: string): Promise<string | null> {
   try {
     return await withRetry(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+        model: "gemini-1.5-flash",
         contents: [{ parts: [{ text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
