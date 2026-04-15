@@ -26,10 +26,14 @@ export function RecipeSearch({ onRecipeFound, userPrefs }: RecipeSearchProps) {
       onRecipeFound(recipe);
     } catch (err: any) {
       console.error("Failed to generate recipe:", err);
-      if (err.message === "QUOTA_EXCEEDED") {
-        setError("Gemini API quota exceeded. Please wait a minute and try again, or try a different search.");
+      const errorText = err.message || String(err);
+      
+      if (errorText === "QUOTA_EXCEEDED") {
+        setError("API quota exceeded. Please wait a minute and try again.");
+      } else if (errorText.includes("API key not valid") || errorText.includes("401")) {
+        setError("Invalid API key. Please check your environment variables.");
       } else {
-        setError(`Failed to generate ${userPrefs?.language || 'English'} recipe. Please try again or search in English.`);
+        setError(`Failed to generate ${userPrefs?.language || 'English'} recipe. Please try again.`);
       }
     } finally {
       setLoading(false);

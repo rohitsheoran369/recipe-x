@@ -1,7 +1,5 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { UserPreferences } from "@/src/types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import { searchMealDB, formatMealDBToRecipe } from "./mealdb";
 
 export interface Recipe {
   title: string;
@@ -18,17 +16,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Pr
   try {
     return await fn();
   } catch (error: any) {
-    // Check for quota error (429)
-    const errorText = error?.message || String(error);
-    const isQuotaError = errorText.includes('429') || 
-                        errorText.includes('RESOURCE_EXHAUSTED') ||
-                        errorText.includes('quota');
-    
-    if (isQuotaError) {
-      console.error("Gemini Quota Exceeded:", errorText);
-      throw new Error("QUOTA_EXCEEDED");
-    }
-    
     if (retries > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
       return withRetry(fn, retries - 1, delay * 2);
@@ -39,87 +26,34 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Pr
 
 export async function generateRecipe(query: string, prefs?: UserPreferences | null): Promise<Recipe> {
   const language = prefs?.language || "English";
-  const languagePrompt = language === "English" 
-    ? "The entire response (title, description, instructions, etc.) MUST be in English."
-    : `CRITICAL: The entire response MUST be in ${language}. 
-       - Translate the "title" into ${language}.
-       - Translate the "description" into ${language}.
-       - Translate all "ingredients" into ${language}.
-       - Translate all "instructions" into ${language}.
-       - Translate all "tips" into ${language}.
-       Do NOT provide any English text unless it is a proper noun that has no translation.`;
+  console.log(`Generating ${language} recipe for: ${query} using TheMealDB + OpenRouter...`);
 
-  const personalizationPrompt = prefs ? `
-    Personalize this recipe based on these user preferences:
-    - Dietary Restrictions: ${prefs.dietary.join(', ') || 'None'}
-    - Cooking Skill Level: ${prefs.skillLevel}
-    - Cuisine Interests: ${prefs.interests.join(', ') || 'None'}
-    Ensure the recipe respects dietary restrictions and matches the skill level.
-  ` : "";
+  // 1. Try TheMealDB first
+  const meal = await searchMealDB(query);
+  let baseRecipe = null;
+  if (meal) {
+    console.log("Found recipe in TheMealDB, preparing for enhancement...");
+    baseRecipe = formatMealDBToRecipe(meal);
+  }
 
-  console.log(`Generating ${language} recipe for: ${query}...`);
-
-  // 1. Try OpenRouter first
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
-
+  // 2. Use OpenRouter for enhancement or generation
+  return withRetry(async () => {
     const response = await fetch('/api/recipe/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, language, personalization: personalizationPrompt }),
-      signal: controller.signal,
+      body: JSON.stringify({ 
+        query, 
+        language, 
+        baseRecipe,
+        personalization: prefs ? JSON.stringify(prefs) : "" 
+      }),
     });
-    
-    clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const recipe = await response.json();
-      if (recipe && recipe.title && recipe.instructions && recipe.instructions.length > 0) {
-        console.log("Recipe generated via OpenRouter");
-        return recipe;
-      }
+    if (!response.ok) {
+      throw new Error("Failed to generate recipe via server");
     }
-  } catch (error) {
-    console.warn("OpenRouter generation failed or timed out, falling back to Gemini:", error);
-  }
 
-  console.log("Falling back to Gemini for recipe generation...");
-  // 2. Fallback to Gemini
-  return withRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: `Generate a detailed recipe for: ${query}. ${languagePrompt} ${personalizationPrompt} IMPORTANT: Do NOT include step numbers (like 1., 2.) in the instructions array, just provide the text for each step.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            description: { type: Type.STRING },
-            prepTime: { type: Type.STRING },
-            cookTime: { type: Type.STRING },
-            servings: { type: Type.NUMBER },
-            ingredients: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            instructions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            tips: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ["title", "description", "ingredients", "instructions"]
-        }
-      }
-    });
-
-    const recipe = JSON.parse(response.text);
-    
+    const recipe = await response.json();
     if (!recipe.title || !recipe.instructions || recipe.instructions.length === 0) {
       throw new Error("AI returned an incomplete recipe.");
     }
@@ -130,86 +64,36 @@ export async function generateRecipe(query: string, prefs?: UserPreferences | nu
 
 export async function generateRecommendation(history: string[], prefs?: UserPreferences | null): Promise<Recipe> {
   const language = prefs?.language || "English";
-  const languagePrompt = language === "English" 
-    ? "The entire response MUST be in English."
-    : `The entire response MUST be in ${language}.`;
-
-  const historyContext = history.length > 0 
-    ? `The user has recently searched for: ${history.join(', ')}.`
-    : "";
-
-  const preferencesContext = prefs ? `
-    User Preferences:
-    - Dietary: ${prefs.dietary.join(', ') || 'None'}
-    - Skill: ${prefs.skillLevel}
-    - Interests: ${prefs.interests.join(', ') || 'None'}
-  ` : "";
-
-  console.log("Generating personalized recommendation...");
+  console.log("Generating personalized recommendation via OpenRouter...");
 
   return withRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: `
-        Based on the following context, suggest ONE highly relevant and unique recipe that the user would love.
-        ${historyContext}
-        ${preferencesContext}
-        ${languagePrompt}
-        
-        IMPORTANT: Make it different from their recent searches but within the same flavor profile or interest area.
-      `,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            description: { type: Type.STRING },
-            prepTime: { type: Type.STRING },
-            cookTime: { type: Type.STRING },
-            servings: { type: Type.NUMBER },
-            ingredients: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            instructions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            tips: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ["title", "description", "ingredients", "instructions"]
-        }
-      }
+    const response = await fetch('/api/recipe/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        query: `Recommend a unique recipe based on history: ${history.join(', ')}`, 
+        language,
+        personalization: prefs ? JSON.stringify(prefs) : "" 
+      }),
     });
 
-    return JSON.parse(response.text);
+    if (!response.ok) {
+      throw new Error("Failed to generate recommendation");
+    }
+
+    return await response.json();
   });
 }
 
 export async function getCookingTip(currentStep: string, ingredient: string, language: string = "English"): Promise<string> {
-  try {
-    return await withRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: `I am currently at this step: "${currentStep}". I am using "${ingredient}". Give me a quick pro-tip or warning. Keep it under 20 words. Respond in ${language}.`,
-      });
-      return response.text || "Keep cooking!";
-    });
-  } catch (error: any) {
-    console.warn("Gemini Tip failed (likely quota), using default:", error);
-    const defaultTips: Record<string, string> = {
-      "English": "Watch the heat and keep stirring!",
-      "Hindi": "आंच का ध्यान रखें और चलाते रहें!",
-      "Bengali": "আঁচের দিকে খেয়াল রাখুন এবং নাড়তে থাকুন!",
-      "Tamil": "தீயைக் கவனித்து கிளறிக்கொண்டே இருங்கள்!",
-      "Telugu": "మంటను గమనిస్తూ కలుపుతూ ఉండండి!"
-    };
-    return defaultTips[language] || "Keep cooking!";
-  }
+  const defaultTips: Record<string, string> = {
+    "English": "Watch the heat and keep stirring!",
+    "Hindi": "आंच का ध्यान रखें और चलाते रहें!",
+    "Bengali": "আঁচের দিকে খেয়াল রাখুন এবং নাড়তে থাকুন!",
+    "Tamil": "தீயைக் கவனித்து கிளறிக்கொண்டே இருங்கள்!",
+    "Telugu": "మంటను గమనిస్తూ కలుపుతూ ఉండండి!"
+  };
+  return defaultTips[language] || "Keep cooking!";
 }
 
 const audioCache = new Map<string, string>();
@@ -221,28 +105,22 @@ export async function generateSpeech(text: string): Promise<string | null> {
   if (cached) return cached;
 
   try {
-    return await withRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
-            },
-          },
-        },
-      });
-
-      const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-      if (data) {
-        audioCache.set(text, data);
-      }
-      return data;
+    const response = await fetch('/api/tts/coqui', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
     });
+
+    if (response.ok) {
+      const { audio } = await response.json();
+      if (audio) {
+        audioCache.set(text, audio);
+        return audio;
+      }
+    }
+    return null;
   } catch (error) {
-    console.warn("Gemini TTS failed:", error);
+    console.warn("TTS failed:", error);
     return null;
   }
 }

@@ -4,7 +4,7 @@ import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { generateOpenRouterRecipe } from "./src/lib/openrouter.server";
+import { generateOpenRouterRecipe, enhanceRecipeWithOpenRouter } from "./src/lib/openrouter.server";
 import { generateCoquiSpeech } from "./src/lib/coqui-tts.server";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,12 +29,19 @@ async function startServer() {
   // API Routes
   app.post("/api/recipe/generate", async (req, res) => {
     console.log("Handling POST /api/recipe/generate");
-    const { query, language } = req.body;
-    if (!query) {
-      return res.status(400).json({ error: "Query is required" });
+    const { query, language, baseRecipe } = req.body;
+    if (!query && !baseRecipe) {
+      return res.status(400).json({ error: "Query or baseRecipe is required" });
     }
     try {
-      const recipe = await generateOpenRouterRecipe(query, language);
+      let recipe;
+      if (baseRecipe) {
+        console.log("Enhancing base recipe from TheMealDB");
+        recipe = await enhanceRecipeWithOpenRouter(baseRecipe, language);
+      } else {
+        console.log("Generating recipe from scratch via OpenRouter");
+        recipe = await generateOpenRouterRecipe(query, language);
+      }
       res.json(recipe);
     } catch (error) {
       console.error("OpenRouter Error:", error);
