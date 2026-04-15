@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user preferences and interests for personalized recommendations.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "format": "uri", "description": "The user's profile picture URL." },
+        "language": { "type": "string", "description": "Preferred language for recipes." },
+        "dietary": { "type": "array", "items": { "type": "string" }, "description": "List of dietary restrictions." },
+        "skillLevel": { "type": "string", "enum": ["Beginner", "Intermediate", "Pro"], "description": "Cooking proficiency level." },
+        "interests": { "type": "array", "items": { "type": "string" }, "description": "Specific cuisines or ingredients the user is interested in." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the profile was last updated." }
+      },
+      "required": ["uid", "email", "language", "skillLevel"]
+    },
+    "SavedRecipe": {
+      "title": "Saved Recipe",
+      "description": "A recipe saved by a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user who saved the recipe." },
+        "recipeId": { "type": "string", "description": "Unique ID for the saved recipe entry." },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "prepTime": { "type": "string" },
+        "cookTime": { "type": "string" },
+        "servings": { "type": "number" },
+        "ingredients": { "type": "array", "items": { "type": "string" } },
+        "instructions": { "type": "array", "items": { "type": "string" } },
+        "tips": { "type": "array", "items": { "type": "string" } },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "title", "instructions"]
+    },
+    "SearchHistory": {
+      "title": "Search History",
+      "description": "A record of a user's search query.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "query": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "query", "timestamp"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "An in-app notification for the user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["recommendation", "system", "tip"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/users/{userId}/savedRecipes/{recipeId}": {
+      "schema": "SavedRecipe",
+      "description": "Recipes saved by a specific user."
+    },
+    "/users/{userId}/searchHistory/{searchId}": {
+      "schema": "SearchHistory",
+      "description": "User's search history."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User's in-app notifications."
+    }
+  }
+}
