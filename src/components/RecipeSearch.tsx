@@ -6,7 +6,7 @@ import { generateRecipe } from '@/src/lib/gemini';
 import { Recipe, UserPreferences } from '@/src/types';
 
 interface RecipeSearchProps {
-  onRecipeFound: (recipe: Recipe) => void;
+  onRecipeFound: (recipe: Recipe, query: string) => void;
   userPrefs?: UserPreferences | null;
 }
 
@@ -23,7 +23,7 @@ export function RecipeSearch({ onRecipeFound, userPrefs }: RecipeSearchProps) {
     setError(null);
     try {
       const recipe = await generateRecipe(query, userPrefs);
-      onRecipeFound(recipe);
+      onRecipeFound(recipe, query);
     } catch (err: any) {
       console.error("Failed to generate recipe:", err);
       const errorText = err.message || String(err);

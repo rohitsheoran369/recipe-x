@@ -53,8 +53,30 @@ async function callOpenRouter(prompt: string): Promise<any> {
 
   const data = await response.json();
   let content = data.choices[0].message.content;
+  
+  // Remove markdown code blocks if present
   content = content.replace(/```json\n?|```/g, '').trim();
-  return JSON.parse(content);
+  
+  try {
+    let parsed = JSON.parse(content);
+    
+    // Handle cases where the model returns an array instead of a single object
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      parsed = parsed[0];
+    }
+    
+    // Handle cases where the model wraps the response in a "recipe" or "data" key
+    if (parsed.recipe && typeof parsed.recipe === 'object') {
+      parsed = parsed.recipe;
+    } else if (parsed.data && typeof parsed.data === 'object') {
+      parsed = parsed.data;
+    }
+    
+    return parsed;
+  } catch (e) {
+    console.error("Failed to parse OpenRouter response:", content);
+    throw new Error("Failed to parse AI response.");
+  }
 }
 
 export async function generateRecipe(query: string, prefs?: UserPreferences | null): Promise<Recipe> {
@@ -113,7 +135,14 @@ export async function generateRecipe(query: string, prefs?: UserPreferences | nu
       IMPORTANT: Translate all content to ${language}. Do NOT include step numbers in the instructions array.`;
     }
 
-    return await callOpenRouter(prompt);
+    const recipe = await callOpenRouter(prompt);
+    
+    if (!recipe || !recipe.title || !recipe.instructions || recipe.instructions.length === 0) {
+      console.error("Incomplete recipe received:", recipe);
+      throw new Error("AI returned an incomplete recipe.");
+    }
+    
+    return recipe;
   });
 }
 
@@ -127,7 +156,14 @@ export async function generateRecommendation(history: string[], prefs?: UserPref
     The entire response MUST be in ${language}.
     Respond ONLY with a valid JSON object matching the recipe structure.`;
     
-    return await callOpenRouter(prompt);
+    const recipe = await callOpenRouter(prompt);
+
+    if (!recipe || !recipe.title || !recipe.instructions || recipe.instructions.length === 0) {
+      console.error("Incomplete recommendation received:", recipe);
+      throw new Error("AI returned an incomplete recommendation.");
+    }
+
+    return recipe;
   });
 }
 

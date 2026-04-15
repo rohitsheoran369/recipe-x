@@ -4,6 +4,7 @@ import { RecipeDisplay } from './components/RecipeDisplay';
 import { CookingMode } from './components/CookingMode';
 import { LandingPage } from './components/LandingPage';
 import { NotificationSystem } from './components/NotificationSystem';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Recipe, UserPreferences } from './types';
 import { ChefHat, Utensils, History, Heart, Loader2, Camera, UtensilsCrossed, LogOut, User as UserIcon, Sparkles, Menu, X as CloseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,7 @@ export default function App() {
   };
 
   const trackSearch = async (query: string) => {
-    if (!user) return;
+    if (!user || !query) return;
     try {
       await addDoc(collection(db, 'users', user.uid, 'searchHistory'), {
         uid: user.uid,
@@ -175,6 +176,7 @@ export default function App() {
     try {
       const newRecipe = await generateRecipe(category, userPrefs);
       setRecipe(newRecipe);
+      trackSearch(category);
     } catch (error) {
       console.error("Failed to generate category recipe:", error);
     } finally {
@@ -202,8 +204,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <AnimatePresence mode="wait">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-stone-50">
+        <AnimatePresence mode="wait">
         {!hasStarted ? (
           <motion.div
             key="landing"
@@ -398,7 +401,7 @@ export default function App() {
               className="py-12"
             >
               <RecipeSearch 
-                onRecipeFound={(r) => { setRecipe(r); trackSearch(r.title); }} 
+                onRecipeFound={(r, q) => { setRecipe(r); trackSearch(q); }} 
                 userPrefs={userPrefs} 
               />
               
@@ -628,5 +631,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </ErrorBoundary>
   );
 }
