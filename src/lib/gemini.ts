@@ -41,7 +41,13 @@ export async function generateRecipe(query: string, prefs?: UserPreferences | nu
   const language = prefs?.language || "English";
   const languagePrompt = language === "English" 
     ? "The entire response (title, description, instructions, etc.) MUST be in English."
-    : `The entire response (title, description, instructions, etc.) MUST be in ${language}. Translate everything including the title and instructions into ${language}.`;
+    : `CRITICAL: The entire response MUST be in ${language}. 
+       - Translate the "title" into ${language}.
+       - Translate the "description" into ${language}.
+       - Translate all "ingredients" into ${language}.
+       - Translate all "instructions" into ${language}.
+       - Translate all "tips" into ${language}.
+       Do NOT provide any English text unless it is a proper noun that has no translation.`;
 
   const personalizationPrompt = prefs ? `
     Personalize this recipe based on these user preferences:

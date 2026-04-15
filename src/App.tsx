@@ -29,6 +29,13 @@ export default function App() {
   const [language, setLanguage] = useState<string>("English");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Sync language state with user preferences
+  useEffect(() => {
+    if (userPrefs && userPrefs.language !== language) {
+      setUserPrefs(prev => prev ? { ...prev, language } : null);
+    }
+  }, [language, userPrefs]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -260,7 +267,10 @@ export default function App() {
                 <div className="flex items-center gap-2 md:gap-4">
                   <select 
                     value={language} 
-                    onChange={(e) => setLanguage(e.target.value)}
+                    onChange={(e) => {
+                      const newLang = e.target.value;
+                      setLanguage(newLang);
+                    }}
                     className="hidden sm:block bg-transparent text-sm font-medium border-none focus:ring-0 cursor-pointer"
                   >
                     <option value="English">English</option>
