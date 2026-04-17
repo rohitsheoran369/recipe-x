@@ -16,6 +16,9 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+  
+  // Serve public folder statically
+  app.use(express.static(path.join(process.cwd(), "public")));
 
   // Log all requests with more detail
   app.use((req, res, next) => {

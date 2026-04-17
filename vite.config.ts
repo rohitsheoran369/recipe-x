@@ -12,30 +12,25 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        injectRegister: 'auto',
+        devOptions: {
+          enabled: true
+        },
+        includeAssets: ['favicon.ico', 'logo.svg'],
         manifest: {
           name: 'Recipe X',
           short_name: 'RecipeX',
           description: 'AI-Powered Smart Cooking Assistant',
-          theme_color: '#ffffff',
-          background_color: '#ffffff',
+          start_url: '/',
           display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#ffffff',
           orientation: 'portrait',
           icons: [
             {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
+              src: 'logo.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
               purpose: 'any maskable'
             }
           ]
