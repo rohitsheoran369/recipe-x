@@ -5,6 +5,7 @@ import { CookingMode } from './components/CookingMode';
 import { LandingPage } from './components/LandingPage';
 import { NotificationSystem } from './components/NotificationSystem';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { Recipe, UserPreferences } from './types';
 import { ChefHat, Utensils, History, Heart, Loader2, Camera, UtensilsCrossed, LogOut, User as UserIcon, Sparkles, Menu, X as CloseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -206,6 +207,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-stone-50">
+        <PWAInstallPrompt />
         <AnimatePresence mode="wait">
         {!hasStarted ? (
           <motion.div

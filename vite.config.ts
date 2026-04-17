@@ -18,6 +18,9 @@ export default defineConfig(({mode}) => {
           short_name: 'RecipeX',
           description: 'AI-Powered Smart Cooking Assistant',
           theme_color: '#ffffff',
+          background_color: '#ffffff',
+          display: 'standalone',
+          orientation: 'portrait',
           icons: [
             {
               src: 'pwa-192x192.png',

@@ -9,10 +9,19 @@
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cap:sync": "npx cap sync",
+    "cap:add:ios": "npx cap add ios",
+    "cap:add:android": "npx cap add android",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@fontsource-variable/geist": "^5.2.8",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/genai": "^1.29.0",
