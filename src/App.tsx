@@ -6,6 +6,7 @@ import { LandingPage } from './components/LandingPage';
 import { NotificationSystem } from './components/NotificationSystem';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { SocialFeed } from './components/SocialFeed';
 import { Recipe, UserPreferences } from './types';
 import { ChefHat, Utensils, History, Heart, Loader2, Camera, UtensilsCrossed, LogOut, User as UserIcon, Sparkles, Menu, X as CloseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ export default function App() {
   const [isCooking, setIsCooking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRecommending, setIsRecommending] = useState(false);
-  const [view, setView] = useState<'home' | 'my-recipes' | 'pantry' | 'system'>('home');
+  const [view, setView] = useState<'home' | 'my-recipes' | 'pantry' | 'social' | 'system'>('home');
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [language, setLanguage] = useState<string>("English");
@@ -255,6 +256,13 @@ export default function App() {
                   </Button>
                   <Button 
                     variant="ghost" 
+                    className={`text-sm font-medium ${view === 'social' ? 'text-primary' : ''}`}
+                    onClick={() => setView('social')}
+                  >
+                    Feed
+                  </Button>
+                  <Button 
+                    variant="ghost" 
                     className={`text-sm font-medium ${view === 'pantry' ? 'text-primary' : ''}`}
                     onClick={() => setView('pantry')}
                   >
@@ -342,6 +350,13 @@ export default function App() {
                         onClick={() => { setView('my-recipes'); setIsMobileMenuOpen(false); }}
                       >
                         My Recipes
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className={`justify-start text-sm font-medium ${view === 'social' ? 'text-primary bg-primary/5' : ''}`}
+                        onClick={() => { setView('social'); setIsMobileMenuOpen(false); }}
+                      >
+                        Feed
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -514,6 +529,17 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {view === 'social' && (
+            <motion.div
+              key="social"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <SocialFeed currentRecipe={recipe} />
             </motion.div>
           )}
 

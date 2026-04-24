@@ -2,147 +2,131 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId} (matches request.auth.uid)
-    // Fields:
-    //   - uid: string (required, immutable) - User ID
-    //   - email: string (required, email format) - User email
-    //   - displayName: string (optional) - User name
-    //   - photoURL: string (optional, url format) - User photo
-    //   - language: string (required) - Preferred language
-    //   - dietary: list (optional) - Dietary restrictions
-    //   - skillLevel: string (required, enum: Beginner, Intermediate, Pro)
-    //   - interests: list (optional) - User interests
-    //   - createdAt: timestamp (required, immutable)
-    //   - updatedAt: timestamp (required)
-    //
-    // Collection: users/{userId}/savedRecipes
-    // Document ID: {recipeId}
-    // Fields:
-    //   - uid: string (required, immutable) - Owner ID
-    //   - title: string (required)
-    //   - description: string (optional)
-    //   - prepTime: string (optional)
-    //   - cookTime: string (optional)
-    //   - servings: number (optional)
-    //   - ingredients: list (required)
-    //   - instructions: list (required)
-    //   - tips: list (optional)
-    //   - savedAt: timestamp (required, immutable)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function isRecent(timestamp) {
-      return timestamp > request.time - duration.value(5, 'm') && timestamp <= request.time;
+    // 1. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
     }
 
     // ===============================================================
-    // Domain Validators
+    // Global Helper Functions
+    // ===============================================================
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isVerified() { return request.auth.token.email_verified == true; }
+    function isRecent(ts) { return ts > request.time - duration.value(5, 'm') && ts <= request.time; }
+
+    // ===============================================================
+    // Validation Blueprints
     // ===============================================================
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'language', 'dietary', 'skillLevel', 'interests', 'createdAt', 'updatedAt']) &&
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'language', 'skillLevel', 'createdAt', 'updatedAt']) &&
+             data.keys().size() >= 7 &&
              data.uid == request.auth.uid &&
-             isValidEmail(data.email) &&
-             data.language is string && data.language.size() > 0 &&
+             data.email is string && data.email.size() < 256 &&
+             data.displayName is string && data.displayName.size() <= 50 &&
+             data.language is string &&
              data.skillLevel in ['Beginner', 'Intermediate', 'Pro'] &&
-             (data.dietary == null || data.dietary is list) &&
-             (data.interests == null || data.interests is list) &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }
 
-    function isValidSavedRecipe(data) {
-      return hasOnlyAllowedFields(['uid', 'recipeId', 'title', 'description', 'prepTime', 'cookTime', 'servings', 'ingredients', 'instructions', 'tips', 'savedAt']) &&
-             data.uid == request.auth.uid &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.ingredients is list && data.ingredients.size() <= 50 &&
-             data.instructions is list && data.instructions.size() > 0 && data.instructions.size() <= 50 &&
-             data.savedAt is timestamp;
+    function isValidPost(data) {
+      return data.keys().hasAll(['userId', 'userName', 'imageUrl', 'rating', 'createdAt', 'likesCount', 'commentsCount']) &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 50 &&
+             data.imageUrl is string && data.imageUrl.size() < 1024 &&
+             data.rating >= 1 && data.rating <= 5 &&
+             data.likesCount is int && data.likesCount >= 0 &&
+             data.commentsCount is int && data.commentsCount >= 0 &&
+             data.createdAt is timestamp;
     }
 
-    function isValidSearch(data) {
-      return hasOnlyAllowedFields(['uid', 'query', 'timestamp']) &&
-             data.uid == request.auth.uid &&
-             data.query is string && data.query.size() > 0 && data.query.size() < 500 &&
-             data.timestamp is timestamp;
+    function isValidComment(data) {
+      return data.keys().hasAll(['userId', 'userName', 'text', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 50 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.createdAt is timestamp;
     }
 
-    function isValidNotification(data) {
-      return hasOnlyAllowedFields(['uid', 'title', 'message', 'type', 'read', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.title is string && data.message is string &&
-             data.type in ['recommendation', 'system', 'tip'] &&
-             data.read is bool &&
+    function isValidLike(data) {
+      return data.keys().hasAll(['userId', 'createdAt']) &&
+             data.userId == request.auth.uid &&
              data.createdAt is timestamp;
     }
 
     // ===============================================================
-    // Rules
+    // Match Blocks
     // ===============================================================
 
+    // Public Profiles & Private User Data
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && isRecent(request.resource.data.createdAt);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.createdAt == resource.data.createdAt;
+      allow get: if isSignedIn(); // Allow profile fetching
+      allow list: if false; // No blanket user listing
+      
+      allow create: if isOwner(userId) && isValidUser(incoming()) && isRecent(incoming().createdAt);
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().uid == existing().uid &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time;
 
       match /savedRecipes/{recipeId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidSavedRecipe(request.resource.data) && isRecent(request.resource.data.savedAt);
-        allow update: if isOwner(userId) && isValidSavedRecipe(request.resource.data) &&
-                        request.resource.data.uid == resource.data.uid &&
-                        request.resource.data.savedAt == resource.data.savedAt;
+        allow create, update: if isOwner(userId);
         allow delete: if isOwner(userId);
       }
 
       match /searchHistory/{searchId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidSearch(request.resource.data) && isRecent(request.resource.data.timestamp);
+        allow read, create: if isOwner(userId);
       }
 
       match /notifications/{notificationId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidNotification(request.resource.data);
-        allow update: if isOwner(userId) && 
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
-                        request.resource.data.read == true;
-        allow delete: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      }
+      
+      // Followers/Following
+      match /followers/{followerId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(followerId) && isValidId(userId);
+      }
+      
+      match /following/{followingId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(userId) && isValidId(followingId);
       }
     }
 
-    // Default deny
-    match /{path=**} {
-      allow read, write: if false;
+    // Social Feed
+    match /posts/{postId} {
+      allow get, list: if true; // Allow public viewing of the food feed
+      allow create: if isSignedIn() && isValidPost(incoming()) && isRecent(incoming().createdAt);
+      allow update: if (isOwner(existing().userId) && isValidPost(incoming()) && 
+                        incoming().userId == existing().userId &&
+                        incoming().createdAt == existing().createdAt) ||
+                    // Action: Like/Unlike (Only increment/decrement likesCount)
+                    (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                     incoming().likesCount is int) ||
+                    // Action: Comment (Only increment commentsCount)
+                    (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount']) &&
+                     incoming().commentsCount is int);
+      allow delete: if isOwner(existing().userId);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && isValidComment(incoming()) && isRecent(incoming().createdAt);
+        allow delete: if isOwner(existing().userId) || isOwner(get(/databases/$(database)/documents/posts/$(postId)).data.userId);
+      }
+
+      match /likes/{userId} {
+        allow read: if true;
+        allow create, delete: if isOwner(userId) && isValidLike(incoming());
+      }
     }
   }
 }

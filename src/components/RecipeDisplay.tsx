@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Users, ChevronRight, Play, Heart, Loader2 } from 'lucide-react';
+import { Clock, Users, ChevronRight, Play, Heart, Loader2, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,14 +45,40 @@ export function RecipeDisplay({ recipe, onStartCooking, onSave, isSaved }: Recip
               <h2 className="text-3xl md:text-4xl font-bold">{recipe.title || 'Untitled Recipe'}</h2>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">{recipe.description || 'No description available.'}</p>
             </div>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className={`rounded-full shrink-0 self-end sm:self-start ${isSaved ? 'text-red-500 bg-red-50 border-red-200' : ''}`}
-              onClick={onSave}
-            >
-              <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
-            </Button>
+            <div className="flex gap-2 self-end sm:self-start">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="rounded-full shrink-0"
+                onClick={async () => {
+                  const shareData = {
+                    title: `Check out this ${recipe.title} recipe on Recipe X`,
+                    text: recipe.description,
+                    url: window.location.href
+                  };
+                  try {
+                    if (navigator.share) {
+                      await navigator.share(shareData);
+                    } else {
+                      await navigator.clipboard.writeText(`${shareData.title}\n${shareData.url}`);
+                      alert('Link copied to clipboard!');
+                    }
+                  } catch (err) {
+                    console.error('Error sharing:', err);
+                  }
+                }}
+              >
+                <Share2 className="w-5 h-5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={`rounded-full shrink-0 ${isSaved ? 'text-red-500 bg-red-50 border-red-200' : ''}`}
+                onClick={onSave}
+              >
+                <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+              </Button>
+            </div>
           </div>
           
           <div className="flex flex-wrap gap-2 md:gap-4">
