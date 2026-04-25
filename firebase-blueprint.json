@@ -104,6 +104,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "createdAt"]
+    },
+    "ShareAnalytics": {
+      "title": "Share Analytics",
+      "description": "Tracking when users share recipe cards.",
+      "type": "object",
+      "properties": {
+        "shareId": { "type": "string" },
+        "userId": { "type": "string" },
+        "recipeId": { "type": "string" },
+        "postId": { "type": "string" },
+        "platform": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["shareId", "userId", "recipeId", "platform", "timestamp"]
     }
   },
   "firestore": {
@@ -142,6 +156,10 @@
     "/users/{userId}/following/{followingId}": {
       "schema": "Like",
       "description": "Users this user is following."
+    },
+    "/shareAnalytics/{shareId}": {
+      "schema": "ShareAnalytics",
+      "description": "Logs of when users share content to external platforms."
     }
   }
 }

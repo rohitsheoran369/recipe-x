@@ -7,6 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { Recipe } from '@/src/types';
 import { motion } from 'motion/react';
 import { ErrorBoundary } from './ErrorBoundary';
+import { RecipeShareCard } from './RecipeShareCard';
+import { auth } from '../lib/firebase';
 
 interface RecipeDisplayProps {
   recipe: Recipe;
@@ -16,6 +18,8 @@ interface RecipeDisplayProps {
 }
 
 export function RecipeDisplay({ recipe, onStartCooking, onSave, isSaved }: RecipeDisplayProps) {
+  const [showShareCard, setShowShareCard] = React.useState(false);
+
   if (!recipe || !recipe.title || !recipe.instructions) {
     return (
       <div className="max-w-4xl mx-auto py-20 text-center space-y-4">
@@ -48,27 +52,16 @@ export function RecipeDisplay({ recipe, onStartCooking, onSave, isSaved }: Recip
             <div className="flex gap-2 self-end sm:self-start">
               <Button 
                 variant="outline" 
-                size="icon" 
-                className="rounded-full shrink-0"
-                onClick={async () => {
-                  const shareData = {
-                    title: `Check out this ${recipe.title} recipe on Recipe X`,
-                    text: recipe.description,
-                    url: window.location.href
-                  };
-                  try {
-                    if (navigator.share) {
-                      await navigator.share(shareData);
-                    } else {
-                      await navigator.clipboard.writeText(`${shareData.title}\n${shareData.url}`);
-                      alert('Link copied to clipboard!');
-                    }
-                  } catch (err) {
-                    console.error('Error sharing:', err);
-                  }
+                size="sm"
+                className="rounded-full shrink-0 border-orange-200 bg-orange-50 text-[#FF4D00] hover:bg-orange-100 hover:text-[#FF6B00] font-bold gap-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowShareCard(true);
                 }}
               >
-                <Share2 className="w-5 h-5" />
+                <Share2 className="w-4 h-4" />
+                Share
               </Button>
               <Button 
                 variant="outline" 
@@ -160,6 +153,20 @@ export function RecipeDisplay({ recipe, onStartCooking, onSave, isSaved }: Recip
           </div>
         </div>
       </motion.div>
+      
+      <RecipeShareCard 
+        data={{
+          id: recipe.id || 'recipe',
+          imageUrl: recipe.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800',
+          recipeTitle: recipe.title,
+          recipeId: recipe.id,
+          userName: 'Chef', // Default for recipe display
+          caption: recipe.description,
+          userId: auth.currentUser?.uid || 'anonymous'
+        }}
+        isOpen={showShareCard}
+        onClose={() => setShowShareCard(false)}
+      />
     </ErrorBoundary>
   );
 }

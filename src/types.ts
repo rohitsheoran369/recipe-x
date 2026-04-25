@@ -1,6 +1,8 @@
 export interface Recipe {
+  id?: string;
   title: string;
   description: string;
+  imageUrl?: string;
   prepTime: string;
   cookTime: string;
   servings: number;
@@ -44,6 +46,16 @@ export interface Comment {
   userPhoto?: string;
   text: string;
   createdAt: any;
+}
+
+export interface ShareAnalytics {
+  id?: string;
+  shareId: string;
+  userId: string;
+  recipeId: string;
+  postId?: string;
+  platform: string;
+  timestamp: any;
 }
 
 export interface UserProfile extends UserPreferences {

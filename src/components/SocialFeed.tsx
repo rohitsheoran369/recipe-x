@@ -179,6 +179,9 @@ export function SocialFeed({ currentRecipe }: SocialFeedProps) {
                 onLikeChange={(count, liked) => {
                   setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likesCount: count } : p));
                 }}
+                onDelete={(postId) => {
+                  setPosts(prev => prev.filter(p => p.id !== postId));
+                }}
               />
             </motion.div>
           ))

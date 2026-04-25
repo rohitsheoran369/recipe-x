@@ -17,7 +17,7 @@ import {
   type DocumentData
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
-import { Post, Comment, UserProfile } from '../types';
+import { Post, Comment, UserProfile, ShareAnalytics } from '../types';
 
 export const socialService = {
   // Storage Operations (Using ImgBB API)
@@ -25,8 +25,13 @@ export const socialService = {
     if (!auth.currentUser) throw new Error('Authentication required');
     
     const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
+    console.log('[socialService] ImgBB Key present:', !!apiKey);
+    if (apiKey) {
+      console.log('[socialService] ImgBB Key starts with:', apiKey.substring(0, 4));
+    }
+    
     if (!apiKey) {
-      throw new Error('ImgBB API key is missing. Please add VITE_IMGBB_API_KEY to your environment.');
+      throw new Error('ImgBB API key is missing. Please check your environment configuration.');
     }
 
     const formData = new FormData();
@@ -201,6 +206,32 @@ export const socialService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `users/${userId}`);
       return null;
+    }
+  },
+
+  async deletePost(postId: string) {
+    if (!auth.currentUser) throw new Error('Authentication required');
+    try {
+      await deleteDoc(doc(db, 'posts', postId));
+      console.log('[socialService] Post deleted:', postId);
+    } catch (error) {
+      console.error('[socialService] deletePost error:', error);
+      handleFirestoreError(error, OperationType.DELETE, `posts/${postId}`);
+      throw error;
+    }
+  },
+
+  async logShare(shareData: Omit<ShareAnalytics, 'id' | 'timestamp'>) {
+    if (!auth.currentUser) return; // Silent return if not signed in for analytics
+    try {
+      await addDoc(collection(db, 'shareAnalytics'), {
+        ...shareData,
+        timestamp: serverTimestamp()
+      });
+      console.log('[socialService] Share logged:', shareData.platform);
+    } catch (error) {
+      console.error('[socialService] logShare error:', error);
+      // We don't necessarily want to block the user shared experience if analytics fail
     }
   }
 };
